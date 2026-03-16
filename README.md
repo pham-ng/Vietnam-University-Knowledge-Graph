@@ -19,6 +19,7 @@ Project này phù hợp cho:
 - Trích xuất lai từ infobox, ngữ cảnh văn bản, và Wikidata.
 - Chuẩn hóa thực thể `University`, `Academic`, `GoverningBody`, `Site`, `City`, `Province`, `Person`.
 - Sinh RDF/Turtle bằng `rdflib` theo ontology `vio`.
+- Có thể đóng gói toàn bộ môi trường chạy bằng Docker và Docker Compose.
 - Hỗ trợ quan hệ trường thành viên, cơ quan chủ quản, site/campus, và liên kết `owl:sameAs` tới Wikidata.
 - Làm giàu tọa độ với mức chất lượng `Exact` và `Approximate`.
 - Siết logic năm thành lập:
@@ -38,6 +39,9 @@ Các artifact đã được kiểm tra gần nhất:
 
 ## Project Structure
 
+- `Dockerfile` — image Python để chạy ETL scripts trong container.
+- `docker-compose.yml` — orchestration cho service ETL và Apache Fuseki.
+- `.dockerignore` — loại bỏ file không cần thiết khỏi Docker build context.
 - `ontology/vio.owl.ttl` — ontology schema của namespace `vio`.
 - `scripts/extract_vi_universities.py` — pipeline crawl, parse, enrich và xuất CSV.
 - `scripts/csv_to_ttl.py` — chuyển CSV sang RDF/Turtle.
@@ -109,6 +113,55 @@ pip install -r requirements.txt
 - `rdflib>=7.0.0`
 - `pytest>=8.0.0`
 
+## Docker Packaging
+
+Project hiện hỗ trợ hai cách chạy:
+
+- chạy trực tiếp bằng Python local,
+- hoặc chạy qua Docker Compose để đồng nhất môi trường ETL và Fuseki.
+
+### Container Architecture
+
+- `vio-etl` — container Python chứa toàn bộ source code và dependencies để chạy `extract_vi_universities.py` và `csv_to_ttl.py`.
+- `fuseki` — container Apache Jena Fuseki để publish ontology và knowledge graph qua SPARQL endpoint.
+
+### Start the packaged stack
+
+```powershell
+cd D:\Sematicweb\vio-project
+docker compose up -d --build
+```
+
+Sau khi chạy:
+
+- ETL container có tên `vio-etl`
+- Fuseki có tên `vio-fuseki`
+- Fuseki UI mặc định ở `http://localhost:3030`
+
+### Stop the stack
+
+```powershell
+cd D:\Sematicweb\vio-project
+docker compose down
+```
+
+### Rebuild after source changes
+
+```powershell
+cd D:\Sematicweb\vio-project
+docker compose up -d --build
+```
+
+### Run ETL commands inside the container
+
+```powershell
+cd D:\Sematicweb\vio-project
+docker compose exec vio-etl python .\scripts\extract_vi_universities.py --category "Category:Đại học Việt Nam" --output .\data\vietnam_universities_details_full.csv --sleep 0.02 --max-depth 5
+docker compose exec vio-etl python .\scripts\csv_to_ttl.py --input .\data\vietnam_universities_details_full.csv --output .\data\universities_instances.ttl
+```
+
+Lưu ý: thư mục project được mount vào `/app` trong container, nên dữ liệu sinh ra vẫn xuất hiện trực tiếp ở thư mục `data/` trên máy host.
+
 ## Run the ETL Pipeline
 
 ### 1. Crawl và sinh CSV
@@ -140,6 +193,13 @@ cd D:\Sematicweb\vio-project
 docker run -d --name fuseki -p 3030:3030 stain/jena-fuseki
 ```
 
+Hoặc nếu muốn chạy bản đóng gói của project:
+
+```powershell
+cd D:\Sematicweb\vio-project
+docker compose up -d fuseki
+```
+
 Local UI:
 
 - `http://localhost:3030`
@@ -157,6 +217,13 @@ Invoke-WebRequest -UseBasicParsing -Method Post -Uri 'http://localhost:3030/vio/
 Invoke-WebRequest -UseBasicParsing -Method Post -Uri 'http://localhost:3030/vio/data?default' -Headers $headers -InFile '.\ontology\vio.owl.ttl' -ContentType 'text/turtle'
 Invoke-WebRequest -UseBasicParsing -Method Post -Uri 'http://localhost:3030/vio/data?default' -Headers $headers -InFile '.\data\universities_instances.ttl' -ContentType 'text/turtle'
 ```
+
+Nếu đang dùng Docker Compose với password mặc định trong `docker-compose.yml`, tài khoản admin mặc định là:
+
+- username: `admin`
+- password: `admin123`
+
+Bạn nên đổi password này bằng biến môi trường `FUSEKI_ADMIN_PASSWORD` trước khi public hoặc demo.
 
 SPARQL endpoint:
 
@@ -199,6 +266,16 @@ Use cases tiêu biểu:
 7. Nạp ontology và instance data vào Fuseki.
 8. Truy vấn knowledge graph bằng SPARQL.
 
+## Docker Workflow
+
+Quy trình đóng gói khuyến nghị:
+
+1. Chạy `docker compose up -d --build`.
+2. Dùng `docker compose exec vio-etl ...` để crawl và sinh lại CSV/Turtle.
+3. Tạo dataset `vio` trong Fuseki UI hoặc qua API.
+4. Nạp `ontology/vio.owl.ttl` và `data/universities_instances.ttl` vào Fuseki.
+5. Truy vấn dữ liệu tại `http://localhost:3030/vio/sparql`.
+
 ## Data Quality Notes
 
 - Một số bài viết không có infobox đầy đủ; extractor sẽ fallback sang văn bản và Wikidata.
@@ -216,6 +293,9 @@ Khi đưa lên GitHub, nên giữ đầy đủ:
 - `data/`
 - `queries/`
 - `tests/`
+- `Dockerfile`
+- `docker-compose.yml`
+- `.dockerignore`
 - `requirements.txt`
 - `.gitignore`
 - `README.md`
