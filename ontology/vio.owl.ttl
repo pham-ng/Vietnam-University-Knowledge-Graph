@@ -5,142 +5,245 @@
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix schema: <https://schema.org/> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
 
 <http://vi.dbpedia.org/ontology/> a owl:Ontology ;
-    rdfs:label "Vietnamese DBpedia Ontology for Education"@en ,
-               "Ontology Vietnamese DBpedia cho miền dữ liệu giáo dục"@vi ;
-    rdfs:comment "Ontology lõi cho pipeline ETL trường đại học Việt Nam, hỗ trợ liên kết Wikidata, địa lý và quan hệ trường thành viên."@vi .
+    rdfs:label "Vietnamese University Knowledge Graph Ontology"@en ,
+               "Ontology tri thức cho đại học Việt Nam"@vi ;
+    rdfs:comment "Research-grade OWL ontology cho knowledge graph kiểu DBpedia về các trường đại học Việt Nam, tích hợp suy luận vị trí, liên kết Linked Data và kiểm định chất lượng bằng SHACL."@vi .
 
-# --- Classes ---
-vio:Thing a owl:Class .
+# -----------------------------------------------------------------------------
+# Classes
+# -----------------------------------------------------------------------------
 
 vio:Person a owl:Class ;
     rdfs:label "Person"@en , "Người"@vi ;
-    rdfs:subClassOf vio:Thing, dbo:Person .
-
-vio:Organization a owl:Class ;
-    rdfs:label "Organization"@en , "Tổ chức"@vi ;
-    rdfs:subClassOf vio:Thing, dbo:Organisation .
-
-vio:Person owl:disjointWith vio:Organization .
-
-vio:GoverningBody a owl:Class ;
-    rdfs:label "Governing body"@en , "Cơ quan chủ quản"@vi ;
-    rdfs:comment "Tổ chức quản lý, chủ quản hoặc điều phối trường đại học/học viện."@vi ;
-    rdfs:subClassOf vio:Organization .
-
-vio:University a owl:Class ;
-    rdfs:label "University"@en , "Trường đại học"@vi ;
-    rdfs:subClassOf vio:Organization, dbo:University, geo:SpatialThing .
+    rdfs:subClassOf dbo:Person, foaf:Person ;
+    owl:equivalentClass foaf:Person .
 
 vio:Academic a owl:Class ;
     rdfs:label "Academic"@en , "Nhà học thuật"@vi ;
     rdfs:subClassOf vio:Person .
 
-vio:Site a owl:Class ;
-    rdfs:label "Site"@en , "Cơ sở"@vi ;
-    rdfs:subClassOf vio:Place, geo:SpatialThing .
+vio:Organization a owl:Class ;
+    rdfs:label "Organization"@en , "Tổ chức"@vi ;
+    rdfs:subClassOf dbo:Organisation, schema:Organization ;
+    owl:equivalentClass schema:Organization .
+
+vio:EducationalOrganization a owl:Class ;
+    rdfs:label "Educational organization"@en , "Tổ chức giáo dục"@vi ;
+    rdfs:subClassOf vio:Organization, schema:EducationalOrganization .
+
+vio:University a owl:Class ;
+    rdfs:label "University"@en , "Trường đại học"@vi ;
+    rdfs:comment "Tổ chức giáo dục đại học; vị trí vật lý nên được mô hình hóa thông qua các thực thể vio:Site."@vi ;
+    rdfs:subClassOf vio:EducationalOrganization,
+                    dbo:University,
+                    schema:CollegeOrUniversity,
+                    [ a owl:Restriction ;
+                      owl:onProperty vio:hasSite ;
+                      owl:minCardinality 1
+                                        ] ;
+        owl:equivalentClass dbo:University, schema:CollegeOrUniversity .
+
+vio:Faculty a owl:Class ;
+    rdfs:label "Faculty"@en , "Khoa/Trường thành viên"@vi ;
+    rdfs:subClassOf vio:EducationalOrganization .
+
+vio:Institute a owl:Class ;
+    rdfs:label "Institute"@en , "Viện"@vi ;
+    rdfs:subClassOf vio:EducationalOrganization .
+
+vio:GovernmentAgency a owl:Class ;
+    rdfs:label "Government agency"@en , "Cơ quan nhà nước"@vi ;
+    rdfs:subClassOf vio:Organization, schema:GovernmentOrganization .
+
+vio:Ministry a owl:Class ;
+    rdfs:label "Ministry"@en , "Bộ"@vi ;
+    rdfs:subClassOf vio:GoverningBody, vio:GovernmentAgency .
+
+vio:ProvincialAuthority a owl:Class ;
+    rdfs:label "Provincial authority"@en , "Ủy ban nhân dân cấp tỉnh"@vi ;
+    rdfs:subClassOf vio:GoverningBody, vio:GovernmentAgency .
+
+vio:UniversitySystem a owl:Class ;
+    rdfs:label "University system"@en , "Hệ thống đại học"@vi ;
+    rdfs:comment "Thực thể bao trùm như Đại học Quốc gia Hà Nội hoặc Đại học Quốc gia Thành phố Hồ Chí Minh."@vi ;
+    rdfs:subClassOf vio:Organization,
+                    [ a owl:Restriction ;
+                      owl:onProperty vio:hasMember ;
+                      owl:minCardinality 1
+                    ] .
+
+vio:GoverningBody a owl:Class ;
+    rdfs:label "Governing body"@en , "Cơ quan chủ quản"@vi ;
+    rdfs:subClassOf vio:Organization .
 
 vio:Place a owl:Class ;
     rdfs:label "Place"@en , "Địa điểm"@vi ;
-    rdfs:subClassOf vio:Thing, dbo:Place, geo:SpatialThing .
+    rdfs:subClassOf dbo:Place, schema:Place ;
+    owl:equivalentClass schema:Place .
 
 vio:City a owl:Class ;
     rdfs:label "City"@en , "Thành phố"@vi ;
-    rdfs:subClassOf vio:Place, dbo:City .
+    rdfs:subClassOf vio:Place, dbo:City, schema:City ;
+    owl:equivalentClass schema:City .
 
 vio:Province a owl:Class ;
     rdfs:label "Province"@en , "Tỉnh/Thành"@vi ;
     rdfs:subClassOf vio:Place, dbo:AdministrativeRegion .
 
-# --- Datatype Properties (Thuộc tính dữ liệu) ---
+vio:District a owl:Class ;
+    rdfs:label "District"@en , "Quận/Huyện"@vi ;
+    rdfs:subClassOf vio:Place, dbo:AdministrativeRegion .
+
+vio:Site a owl:Class ;
+    rdfs:label "Site"@en , "Cơ sở"@vi ;
+    rdfs:comment "Một cơ sở/campus cụ thể của trường đại học, nơi lưu địa chỉ, tọa độ và thông tin vị trí."@vi ;
+    rdfs:subClassOf geo:SpatialThing,
+                    schema:Place,
+                    [ a owl:Restriction ;
+                      owl:onProperty geo:lat ;
+                      owl:minCardinality 1
+                    ] ,
+                    [ a owl:Restriction ;
+                      owl:onProperty geo:long ;
+                      owl:minCardinality 1
+                    ] .
+
+# -----------------------------------------------------------------------------
+# Disjointness axioms
+# -----------------------------------------------------------------------------
+
+vio:Person owl:disjointWith vio:Organization, vio:Place .
+vio:Organization owl:disjointWith vio:Place .
+vio:City owl:disjointWith vio:Province .
+vio:Site owl:disjointWith vio:Organization, vio:Person, vio:Place .
+vio:University owl:disjointWith vio:Faculty, vio:Institute, vio:UniversitySystem, vio:GoverningBody .
+vio:Faculty owl:disjointWith vio:Institute, vio:UniversitySystem .
+vio:GovernmentAgency owl:disjointWith vio:EducationalOrganization .
+
+# -----------------------------------------------------------------------------
+# Annotation / naming properties
+# -----------------------------------------------------------------------------
+
 vio:name a owl:DatatypeProperty ;
     rdfs:label "name"@en , "tên"@vi ;
-    rdfs:comment "Tên hiển thị chính thức của thực thể."@vi ;
-    rdfs:domain vio:Thing ;
-    rdfs:range xsd:string .
+    rdfs:comment "Thuộc tính tên chính dùng để hiển thị và truy vấn tài nguyên. `rdfs:label` và `skos:prefLabel` vẫn nên được giữ cho Linked Data publishing, nhưng không được khai báo `subPropertyOf` trực tiếp ở đây để tránh trộn annotation property với datatype property trong OWL DL."@vi ;
+    rdfs:range rdf:langString ;
+    rdfs:subPropertyOf schema:name .
+
+vio:shortName a owl:AnnotationProperty ;
+    rdfs:label "short name"@en , "tên viết tắt"@vi ;
+    rdfs:subPropertyOf skos:altLabel, schema:alternateName .
+
+# -----------------------------------------------------------------------------
+# Datatype properties
+# -----------------------------------------------------------------------------
 
 vio:address a owl:DatatypeProperty ;
     rdfs:label "address"@en , "địa chỉ"@vi ;
-    rdfs:comment "Địa chỉ chi tiết của cơ sở giáo dục."@vi ;
-    rdfs:domain vio:Thing ;
+    rdfs:domain vio:Site ;
     rdfs:range xsd:string .
 
 vio:foundingYearOrg a owl:DatatypeProperty , owl:FunctionalProperty ;
     rdfs:label "founding year"@en , "năm thành lập"@vi ;
-    rdfs:comment "Năm thành lập của tổ chức, biểu diễn theo kiểu xsd:gYear."@vi ;
     rdfs:domain vio:Organization ;
     rdfs:range xsd:gYear .
+
+vio:hasWikidataID a owl:DatatypeProperty ;
+    rdfs:label "Wikidata identifier"@en , "mã định danh Wikidata"@vi ;
+    rdfs:comment "Mã QID của thực thể tương ứng trên Wikidata, ví dụ Q1897313."@vi ;
+    rdfs:domain owl:Thing ;
+    rdfs:range xsd:string .
 
 vio:numberOfStudents a owl:DatatypeProperty ;
     rdfs:label "number of students"@en , "số lượng sinh viên"@vi ;
     rdfs:domain vio:University ;
-    rdfs:range xsd:integer .
+    rdfs:range xsd:nonNegativeInteger .
 
 vio:academicStaffSize a owl:DatatypeProperty ;
     rdfs:label "academic staff size"@en , "quy mô giảng viên"@vi ;
     rdfs:domain vio:University ;
-    rdfs:range xsd:integer .
+    rdfs:range xsd:nonNegativeInteger .
 
 vio:coordLevel a owl:DatatypeProperty ;
-    rdfs:label "coordinate level"@en , "mức chất lượng tọa độ"@vi ;
-    rdfs:comment "Đánh dấu tọa độ của cơ sở là chính xác hay xấp xỉ theo cơ chế fallback ETL."@vi ;
+    rdfs:label "coordinate quality level"@en , "mức chất lượng tọa độ"@vi ;
     rdfs:domain vio:Site ;
     rdfs:range xsd:string .
 
-# --- Object Properties (Thuộc tính quan hệ) ---
-vio:isPartOf a owl:ObjectProperty , owl:TransitiveProperty ;
-    rdfs:label "is part of"@en , "thuộc về"@vi ;
-    rdfs:domain vio:Place ;
-    rdfs:range vio:Place ;
-    owl:inverseOf vio:hasPart .
+geo:lat a owl:DatatypeProperty ;
+    rdfs:label "latitude"@en , "vĩ độ"@vi ;
+    rdfs:domain vio:Site ;
+    rdfs:range xsd:float .
 
-vio:hasPart a owl:ObjectProperty ;
-    rdfs:label "has part"@en , "bao gồm"@vi ;
-    rdfs:domain vio:Place ;
-    rdfs:range vio:Place .
+geo:long a owl:DatatypeProperty ;
+    rdfs:label "longitude"@en , "kinh độ"@vi ;
+    rdfs:domain vio:Site ;
+    rdfs:range xsd:float .
+
+# -----------------------------------------------------------------------------
+# Object properties
+# -----------------------------------------------------------------------------
+
+vio:hasSite a owl:ObjectProperty ;
+    rdfs:label "has site"@en , "có cơ sở"@vi ;
+    rdfs:domain [ a owl:Class ; owl:unionOf (vio:University vio:Faculty vio:Institute vio:UniversitySystem) ] ;
+    rdfs:range vio:Site .
+
+vio:locatedInDistrict a owl:ObjectProperty ;
+    rdfs:label "located in district"@en , "tọa lạc tại quận/huyện"@vi ;
+    rdfs:domain vio:Site ;
+    rdfs:range vio:District .
 
 vio:locatedInCity a owl:ObjectProperty ;
     rdfs:label "located in city"@en , "tọa lạc tại thành phố"@vi ;
-    rdfs:domain geo:SpatialThing ;
+    rdfs:comment "Được assert trực tiếp trên Site và có thể được suy ra cho University hoặc UniversitySystem qua property chain."@vi ;
     rdfs:range vio:City .
 
 vio:locatedInProvince a owl:ObjectProperty ;
     rdfs:label "located in province"@en , "tọa lạc tại tỉnh/thành"@vi ;
-    rdfs:domain geo:SpatialThing ;
+    rdfs:comment "Được assert trực tiếp trên Site và có thể được suy ra cho University hoặc UniversitySystem qua property chain."@vi ;
     rdfs:range vio:Province .
-
-vio:hasSite a owl:ObjectProperty ;
-    rdfs:label "has site"@en , "có cơ sở"@vi ;
-    rdfs:comment "Liên kết trường đại học với một hoặc nhiều cơ sở/campus cụ thể."@vi ;
-    rdfs:domain vio:University ;
-    rdfs:range vio:Site .
 
 vio:governedBy a owl:ObjectProperty ;
     rdfs:label "governed by"@en , "được chủ quản bởi"@vi ;
-    rdfs:comment "Liên kết trường đại học với cơ quan chủ quản hoặc tổ chức điều phối của nó."@vi ;
-    rdfs:domain vio:University ;
-    rdfs:range vio:GoverningBody ;
+    rdfs:domain [ a owl:Class ; owl:unionOf (vio:University vio:Faculty vio:Institute vio:UniversitySystem) ] ;
+    rdfs:range vio:Organization ;
     owl:inverseOf vio:governs .
 
 vio:governs a owl:ObjectProperty ;
     rdfs:label "governs"@en , "chủ quản"@vi ;
-    rdfs:domain vio:GoverningBody ;
-    rdfs:range vio:University .
+    rdfs:domain vio:Organization ;
+    rdfs:range [ a owl:Class ; owl:unionOf (vio:University vio:Faculty vio:Institute vio:UniversitySystem) ] .
 
-# Quan hệ thành viên (Để xử lý ví dụ Trường CNTT trực thuộc ĐH Cần Thơ)
+vio:parentOrganization a owl:ObjectProperty ;
+    rdfs:label "parent organization"@en , "tổ chức cấp trên"@vi ;
+    rdfs:domain vio:Organization ;
+    rdfs:range vio:Organization ;
+    rdfs:subPropertyOf schema:parentOrganization .
+
 vio:isMemberOf a owl:ObjectProperty ;
     rdfs:label "is member of"@en , "là đơn vị thành viên của"@vi ;
-    rdfs:comment "Liên kết một trường thành viên với đại học hoặc tổ chức chủ quản của nó."@vi ;
-    rdfs:domain vio:University ;
-    rdfs:range vio:University .
+    rdfs:domain vio:EducationalOrganization ;
+    rdfs:range [ a owl:Class ; owl:unionOf (vio:University vio:UniversitySystem) ] ;
+    owl:inverseOf vio:hasMember .
 
 vio:hasMember a owl:ObjectProperty ;
     rdfs:label "has member"@en , "có đơn vị thành viên"@vi ;
-    rdfs:comment "Liên kết một đại học/hệ thống với các trường thành viên trực thuộc nó."@vi ;
-    rdfs:domain vio:University ;
-    rdfs:range vio:University ;
+    rdfs:domain [ a owl:Class ; owl:unionOf (vio:University vio:UniversitySystem) ] ;
+    rdfs:range vio:EducationalOrganization ;
     owl:inverseOf vio:isMemberOf .
+
+vio:wikidataEntity a owl:ObjectProperty ;
+    rdfs:label "Wikidata entity"@en , "thực thể Wikidata"@vi ;
+    rdfs:comment "Liên kết một tài nguyên cục bộ tới thực thể tương ứng trên Wikidata. Trong dữ liệu public, nên tiếp tục xuất `owl:sameAs` cho liên kết định danh chuẩn."@vi ;
+    rdfs:domain owl:Thing ;
+    rdfs:range owl:Thing ;
+    rdfs:subPropertyOf owl:sameAs .
 
 vio:headOfUniversity a owl:ObjectProperty ;
     rdfs:label "head of university"@en , "người đứng đầu trường"@vi ;
@@ -153,26 +256,89 @@ vio:isHeadOf a owl:ObjectProperty ;
     rdfs:domain vio:Academic ;
     rdfs:range vio:University .
 
-# --- External vocabulary constraints used in the ETL output ---
-geo:lat a owl:DatatypeProperty ;
-    rdfs:label "latitude"@en , "vĩ độ"@vi ;
-    rdfs:domain geo:SpatialThing ;
-    rdfs:range xsd:float .
+vio:isPartOf a owl:ObjectProperty , owl:TransitiveProperty ;
+    rdfs:label "is part of"@en , "thuộc về"@vi ;
+    rdfs:domain vio:Place ;
+    rdfs:range vio:Place ;
+    owl:inverseOf vio:hasPart .
 
-geo:long a owl:DatatypeProperty ;
-    rdfs:label "longitude"@en , "kinh độ"@vi ;
-    rdfs:domain geo:SpatialThing ;
-    rdfs:range xsd:float .
+vio:hasPart a owl:ObjectProperty ;
+    rdfs:label "has part"@en , "bao gồm"@vi ;
+    rdfs:domain vio:Place ;
+    rdfs:range vio:Place .
 
-# --- Reasoning (Suy luận logic) ---
-# Tự động suy luận: Nếu Trường ở Quận/Huyện -> Quận/Huyện thuộc Tỉnh -> Trường ở Tỉnh đó
-vio:locatedInProvince owl:propertyChainAxiom (vio:locatedInCity vio:isPartOf) .
+# -----------------------------------------------------------------------------
+# Reasoning rules / property chains
+# -----------------------------------------------------------------------------
 
-# Nếu trường có cơ sở ở một thành phố/tỉnh, có thể suy ra trường cũng ở đó.
+# Site locatedInDistrict District ; District isPartOf City -> Site locatedInCity City
+vio:locatedInCity owl:propertyChainAxiom (vio:locatedInDistrict vio:isPartOf) .
+
+# Site locatedInDistrict District ; District isPartOf City ; City isPartOf Province -> Site locatedInProvince Province
+vio:locatedInProvince owl:propertyChainAxiom (vio:locatedInDistrict vio:isPartOf vio:isPartOf) .
+
+# University hasSite Site ; Site locatedInCity City -> University locatedInCity City
 vio:locatedInCity owl:propertyChainAxiom (vio:hasSite vio:locatedInCity) .
+
+# University hasSite Site ; Site locatedInDistrict District ; District isPartOf City -> University locatedInCity City
+vio:locatedInCity owl:propertyChainAxiom (vio:hasSite vio:locatedInDistrict vio:isPartOf) .
+
+# University hasSite Site ; Site locatedInProvince Province -> University locatedInProvince Province
 vio:locatedInProvince owl:propertyChainAxiom (vio:hasSite vio:locatedInProvince) .
+
+# University hasSite Site ; Site locatedInCity City ; City isPartOf Province -> University locatedInProvince Province
 vio:locatedInProvince owl:propertyChainAxiom (vio:hasSite vio:locatedInCity vio:isPartOf) .
 
-# Nếu trường thành viên trực thuộc một đại học/hệ thống đã có cơ quan chủ quản,
-# có thể suy ra trường thành viên cũng thuộc cùng cơ quan chủ quản.
+# University hasSite Site ; Site locatedInDistrict District ; District isPartOf City ; City isPartOf Province -> University locatedInProvince Province
+vio:locatedInProvince owl:propertyChainAxiom (vio:hasSite vio:locatedInDistrict vio:isPartOf vio:isPartOf) .
+
+# Member university inherits governing body from its parent university/system
 vio:governedBy owl:propertyChainAxiom (vio:isMemberOf vio:governedBy) .
+
+# -----------------------------------------------------------------------------
+# SHACL validation shapes
+# -----------------------------------------------------------------------------
+
+vio:UniversityShape a sh:NodeShape ;
+    sh:targetClass vio:University ;
+    sh:property [
+        sh:path vio:name ;
+        sh:minCount 1 ;
+        sh:message "A university must have at least one name label."@en
+    ] ;
+    sh:property [
+        sh:path vio:hasSite ;
+        sh:minCount 1 ;
+        sh:class vio:Site ;
+        sh:message "A university must be connected to at least one site."@en
+    ] ;
+    sh:property [
+        sh:path vio:foundingYearOrg ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:gYear ;
+        sh:message "A university should have exactly one founding year represented as xsd:gYear."@en
+    ] .
+
+vio:SiteShape a sh:NodeShape ;
+    sh:targetClass vio:Site ;
+    sh:property [
+        sh:path vio:address ;
+        sh:minCount 0 ;
+        sh:datatype xsd:string ;
+        sh:message "A site may have an address when the crawl provides one."@en
+    ] ;
+    sh:property [
+        sh:path geo:lat ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:float ;
+        sh:message "A site must have exactly one latitude."@en
+    ] ;
+    sh:property [
+        sh:path geo:long ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:float ;
+        sh:message "A site must have exactly one longitude."@en
+    ] .

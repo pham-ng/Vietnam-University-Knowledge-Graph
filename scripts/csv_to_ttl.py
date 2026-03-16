@@ -19,7 +19,7 @@ from typing import Optional, Tuple
 
 import requests
 from rdflib import Graph, Literal, Namespace, URIRef
-from rdflib.namespace import OWL, RDF, RDFS, XSD
+from rdflib.namespace import OWL, RDF, RDFS, SKOS, XSD
 
 
 # --- Namespace constants ----------------------------------------------------
@@ -28,6 +28,17 @@ VRES_NS = "http://vi.dbpedia.org/resource/"
 DBO_NS = "http://dbpedia.org/ontology/"
 GEO_NS = "http://www.w3.org/2003/01/geo/wgs84_pos#"
 WD_NS = "http://www.wikidata.org/entity/"
+
+
+RESOURCE_LABEL_ALIASES = {
+    "Hà Nội": "Hanoi",
+    "Hồ Chí Minh": "Ho_Chi_Minh_City",
+    "Thành phố Hồ Chí Minh": "Ho_Chi_Minh_City",
+    "Hải Phòng": "Hai_Phong",
+    "Đà Nẵng": "Da_Nang",
+    "Cần Thơ": "Can_Tho",
+    "Thừa Thiên Huế": "Thua_Thien_Hue",
+}
 
 
 PROVINCE_NAMES = {
@@ -48,15 +59,35 @@ CITY_NAMES = {
     "Phan Thiết", "Cà Mau",
 }
 
+GOVERNING_BODY_RESOURCE_IDS = {
+    "Bộ Giáo dục và Đào tạo": "MOET",
+    "Bộ Quốc phòng": "Ministry_of_Defense",
+    "Bộ Công an": "Ministry_of_Public_Security",
+    "Bộ Y tế": "Ministry_of_Health",
+    "Bộ Văn hóa, Thể thao và Du lịch": "Ministry_of_Culture_Sports_and_Tourism",
+    "Bộ Nông nghiệp và Môi trường": "Ministry_of_Agriculture_and_Environment",
+    "Bộ Xây dựng": "Ministry_of_Construction",
+    "Bộ Công Thương": "Ministry_of_Industry_and_Trade",
+    "Bộ Giao thông vận tải": "Ministry_of_Transport",
+    "Bộ Tài chính": "Ministry_of_Finance",
+    "Bộ Tư pháp": "Ministry_of_Justice",
+    "Đại học Quốc gia Hà Nội": "VNU_Hanoi",
+    "Đại học Quốc gia Thành phố Hồ Chí Minh": "VNU_HCM",
+    "UBND Thành phố Hà Nội": "Hanoi_Peoples_Committee",
+    "UBND Thành phố Hồ Chí Minh": "Ho_Chi_Minh_City_Peoples_Committee",
+}
+
+UNIVERSITY_SYSTEM_RESOURCE_IDS = {
+    "Đại học Quốc gia Hà Nội": "VNU_Hanoi",
+    "Đại học Quốc gia Thành phố Hồ Chí Minh": "VNU_HCM",
+    "Đại học Huế": "Hue_University",
+    "Đại học Đà Nẵng": "University_Of_Da_Nang",
+}
+
 
 # --- Utility helpers --------------------------------------------------------
 def slugify(value: str) -> str:
-    """Chuẩn hóa chuỗi tiếng Việt thành slug ASCII dùng `_`.
-
-    Ví dụ:
-    - `Đại học Bách khoa Hà Nội` -> `dai_hoc_bach_khoa_ha_noi`
-    - `TP. Hồ Chí Minh` -> `tp_ho_chi_minh`
-    """
+    """Chuẩn hóa chuỗi tiếng Việt thành slug ASCII lowercase."""
     text = (value or "").strip()
     if not text:
         return ""
@@ -70,12 +101,73 @@ def slugify(value: str) -> str:
     return text
 
 
-def make_resource_uri(namespace: Namespace, resource_type: str, value: str) -> URIRef:
-    """Tạo URI tài nguyên dạng `namespace + Type/slug`.
+def resource_local_name(value: str, fallback: str = "Resource") -> str:
+    """Tạo local name thân thiện cho URI resource theo kiểu Linked Data.
 
-    Ví dụ: `http://vi.dbpedia.org/resource/University/dai_hoc_x`
+    Ví dụ:
+    - `Hanoi University of Science and Technology` -> `Hanoi_University_Of_Science_And_Technology`
+    - `Hà Nội` -> `Hanoi`
+    - `Hồ Chí Minh` -> `Ho_Chi_Minh_City`
     """
-    return namespace[f"{resource_type}/{slugify(value)}"]
+    text = normalize_text(value)
+    if not text:
+        return fallback
+    if text in RESOURCE_LABEL_ALIASES:
+        return RESOURCE_LABEL_ALIASES[text]
+
+    text = text.replace("Đ", "D").replace("đ", "d")
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(char for char in text if unicodedata.category(char) != "Mn")
+    text = re.sub(r"[^A-Za-z0-9]+", " ", text).strip()
+    if not text:
+        return fallback
+
+    parts = []
+    for token in text.split():
+        if token.isupper() and len(token) <= 5:
+            parts.append(token)
+        else:
+            parts.append(token[:1].upper() + token[1:])
+    return "_".join(parts)
+
+
+def make_resource_uri(namespace: Namespace, local_name: str) -> URIRef:
+    """Tạo URI tài nguyên phẳng trong namespace `vres:`."""
+    return namespace[local_name]
+
+
+def make_university_uri(vres: Namespace, page_or_name: str) -> URIRef:
+    return make_resource_uri(vres, resource_local_name(page_or_name, fallback="University"))
+
+
+def make_academic_uri(vres: Namespace, person_name: str) -> URIRef:
+    return make_resource_uri(vres, resource_local_name(person_name, fallback="Academic"))
+
+
+def make_city_uri(vres: Namespace, city_name: str) -> URIRef:
+    return make_resource_uri(vres, resource_local_name(city_name, fallback="City"))
+
+
+def make_province_uri(vres: Namespace, province_name: str) -> URIRef:
+    return make_resource_uri(vres, f"{resource_local_name(province_name, fallback='Province')}_Province")
+
+
+def make_governing_body_uri(vres: Namespace, governing_body_name: str) -> URIRef:
+    resource_id = GOVERNING_BODY_RESOURCE_IDS.get(governing_body_name)
+    if resource_id:
+        return make_resource_uri(vres, resource_id)
+    return make_resource_uri(vres, resource_local_name(governing_body_name, fallback="GoverningBody"))
+
+
+def make_site_uri(vres: Namespace, page_or_name: str, index: int) -> URIRef:
+    return make_resource_uri(vres, f"{resource_local_name(page_or_name, fallback='Site')}_Site{index}")
+
+
+def make_university_system_uri(vres: Namespace, system_name: str) -> URIRef:
+    resource_id = UNIVERSITY_SYSTEM_RESOURCE_IDS.get(system_name)
+    if resource_id:
+        return make_resource_uri(vres, resource_id)
+    return make_resource_uri(vres, resource_local_name(system_name, fallback="UniversitySystem"))
 
 
 def add_vi_literal(graph: Graph, subject: URIRef, predicate: URIRef, value: str) -> None:
@@ -93,10 +185,10 @@ def add_typed_literal(graph: Graph, subject: URIRef, predicate: URIRef, value: s
 
 
 def add_integer_literal(graph: Graph, subject: URIRef, predicate: URIRef, value: str) -> None:
-    """Chuẩn hóa và thêm số nguyên kiểu `xsd:integer`."""
+    """Chuẩn hóa và thêm số nguyên kiểu `xsd:nonNegativeInteger`."""
     cleaned = re.sub(r"\D", "", value or "")
     if cleaned:
-        graph.add((subject, predicate, Literal(int(cleaned), datatype=XSD.integer)))
+        graph.add((subject, predicate, Literal(int(cleaned), datatype=XSD.nonNegativeInteger)))
 
 
 def add_float_literal(graph: Graph, subject: URIRef, predicate: URIRef, value: str) -> None:
@@ -124,12 +216,14 @@ def split_pipe_values(value: str) -> list[str]:
 
 
 def ensure_label_and_name(graph: Graph, resource: URIRef, vio: Namespace, value: str) -> None:
-    """Bổ sung `rdfs:label` và `vio:name` cho thực thể có tên tiếng Việt."""
+    """Bổ sung `vio:name`, `rdfs:label` và `skos:prefLabel` cho thực thể có tên tiếng Việt."""
     cleaned = (value or "").strip()
     if not cleaned:
         return
-    graph.add((resource, RDFS.label, Literal(cleaned, lang="vi")))
-    graph.add((resource, vio.name, Literal(cleaned, lang="vi")))
+    name_literal = Literal(cleaned, lang="vi")
+    graph.add((resource, vio.name, name_literal))
+    graph.add((resource, RDFS.label, name_literal))
+    graph.add((resource, SKOS.prefLabel, name_literal))
 
 
 def normalize_text(value: str) -> str:
@@ -152,13 +246,64 @@ def infer_site_location_from_address(address: str, fallback_city: str, fallback_
             detected_province = province_name
             break
 
-    if site_count == 1:
-        detected_city = detected_city or normalize_text(fallback_city)
-        detected_province = detected_province or normalize_text(fallback_province)
+    detected_city = detected_city or normalize_text(fallback_city)
+    detected_province = detected_province or normalize_text(fallback_province)
 
     if detected_city and not detected_province and normalize_text(fallback_province):
         detected_province = normalize_text(fallback_province)
     return detected_city, detected_province
+
+
+def build_site_records(row: dict) -> list[dict[str, str]]:
+    """Biến dữ liệu campus phẳng thành danh sách record site chuẩn KG."""
+    addresses = split_pipe_values(row.get("address", ""))
+    latitudes = split_pipe_values(row.get("latitude", ""))
+    longitudes = split_pipe_values(row.get("longitude", ""))
+    coord_levels = split_pipe_values(row.get("coord_level", ""))
+    row_city = normalize_text(row.get("city", ""))
+    row_province = normalize_text(row.get("province", ""))
+
+    site_count = max(len(addresses), len(latitudes), len(longitudes), len(coord_levels))
+    if site_count == 0 and any([row_city, row_province]):
+        site_count = 1
+    if site_count == 0:
+        return []
+
+    addresses = pad_list(addresses, site_count)
+    latitudes = pad_list(latitudes, site_count)
+    longitudes = pad_list(longitudes, site_count)
+    coord_levels = pad_list(coord_levels, site_count)
+
+    site_records: list[dict[str, str]] = []
+    for index in range(site_count):
+        address = addresses[index]
+        latitude = latitudes[index]
+        longitude = longitudes[index]
+        coord_level = coord_levels[index]
+        site_city, site_province = infer_site_location_from_address(address, row_city, row_province, site_count)
+        site_records.append(
+            {
+                "index": str(index + 1),
+                "address": address,
+                "latitude": latitude,
+                "longitude": longitude,
+                "coord_level": coord_level,
+                "city": site_city,
+                "province": site_province,
+            }
+        )
+    return site_records
+
+
+def is_university_system_name(value: str) -> bool:
+    cleaned = normalize_text(value).lower()
+    if not cleaned:
+        return False
+    if "đại học quốc gia" in cleaned:
+        return True
+    if cleaned.startswith("đại học ") and not cleaned.startswith("đại học y"):
+        return True
+    return False
 
 
 # --- Entity builders --------------------------------------------------------
@@ -169,12 +314,15 @@ def add_university_entity(graph: Graph, row: dict, vio: Namespace, vres: Namespa
     if not page:
         return None
 
-    university_uri = make_resource_uri(vres, "University", page)
+    university_uri = make_university_uri(vres, page or name)
     graph.add((university_uri, RDF.type, vio.University))
+    graph.add((university_uri, RDF.type, vio.EducationalOrganization))
+    graph.add((university_uri, RDF.type, vio.Organization))
     ensure_label_and_name(graph, university_uri, vio, name or page)
 
     wikidata_id = (row.get("wikidata_id") or "").strip()
     if wikidata_id:
+        graph.add((university_uri, vio.hasWikidataID, Literal(wikidata_id, datatype=XSD.string)))
         graph.add((university_uri, OWL.sameAs, wd[wikidata_id]))
 
     add_typed_literal(graph, university_uri, vio.foundingYearOrg, row.get("foundingYearOrg", ""), XSD.gYear)
@@ -191,8 +339,9 @@ def add_academic_entity(graph: Graph, university_uri: URIRef, row: dict, vio: Na
     if not head_name:
         return
 
-    academic_uri = make_resource_uri(vres, "Academic", head_name)
+    academic_uri = make_academic_uri(vres, head_name)
     graph.add((academic_uri, RDF.type, vio.Academic))
+    graph.add((academic_uri, RDF.type, vio.Person))
     ensure_label_and_name(graph, academic_uri, vio, head_name)
 
     if head_title:
@@ -203,7 +352,11 @@ def add_academic_entity(graph: Graph, university_uri: URIRef, row: dict, vio: Na
 
 
 def add_place_entities(graph: Graph, university_uri: URIRef, row: dict, vio: Namespace, vres: Namespace) -> None:
-    """Tạo thực thể `vio:City` và `vio:Province`, cùng các quan hệ địa lý."""
+    """Tạo thực thể `vio:City` và `vio:Province` từ dữ liệu dòng CSV.
+
+    Hàm này chỉ đảm bảo các place resources tồn tại; quan hệ địa lý chính của
+    trường sẽ đi qua `vio:Site` để đúng mô hình knowledge graph site-centric.
+    """
     city_name = (row.get("city") or "").strip()
     province_name = (row.get("province") or "").strip()
 
@@ -211,16 +364,16 @@ def add_place_entities(graph: Graph, university_uri: URIRef, row: dict, vio: Nam
     province_uri: Optional[URIRef] = None
 
     if province_name:
-        province_uri = make_resource_uri(vres, "Province", province_name)
+        province_uri = make_province_uri(vres, province_name)
         graph.add((province_uri, RDF.type, vio.Province))
+        graph.add((province_uri, RDF.type, vio.Place))
         ensure_label_and_name(graph, province_uri, vio, province_name)
-        graph.add((university_uri, vio.locatedInProvince, province_uri))
 
     if city_name:
-        city_uri = make_resource_uri(vres, "City", city_name)
+        city_uri = make_city_uri(vres, city_name)
         graph.add((city_uri, RDF.type, vio.City))
+        graph.add((city_uri, RDF.type, vio.Place))
         ensure_label_and_name(graph, city_uri, vio, city_name)
-        graph.add((university_uri, vio.locatedInCity, city_uri))
 
     if city_uri and province_uri:
         graph.add((city_uri, vio.isPartOf, province_uri))
@@ -232,64 +385,56 @@ def add_governing_body_entity(graph: Graph, university_uri: URIRef, row: dict, v
     if not governing_body_name:
         return
 
-    governing_body_uri = make_resource_uri(vres, "GoverningBody", governing_body_name)
+    governing_body_uri = make_governing_body_uri(vres, governing_body_name)
     graph.add((governing_body_uri, RDF.type, vio.GoverningBody))
+    graph.add((governing_body_uri, RDF.type, vio.Organization))
     ensure_label_and_name(graph, governing_body_uri, vio, governing_body_name)
     graph.add((university_uri, vio.governedBy, governing_body_uri))
+    graph.add((governing_body_uri, vio.governs, university_uri))
 
 
 def add_site_entities(graph: Graph, university_uri: URIRef, row: dict, vio: Namespace, vres: Namespace, geo: Namespace) -> None:
     """Tạo các `vio:Site` từ chuỗi `address/latitude/longitude/coord_level` phân tách bởi `|`."""
-    addresses = split_pipe_values(row.get("address", ""))
-    latitudes = split_pipe_values(row.get("latitude", ""))
-    longitudes = split_pipe_values(row.get("longitude", ""))
-    coord_levels = split_pipe_values(row.get("coord_level", ""))
-    row_city = normalize_text(row.get("city", ""))
-    row_province = normalize_text(row.get("province", ""))
-
-    site_count = max(len(addresses), len(latitudes), len(longitudes), len(coord_levels))
-    if site_count == 0:
-        return
-
-    addresses = pad_list(addresses, site_count)
-    latitudes = pad_list(latitudes, site_count)
-    longitudes = pad_list(longitudes, site_count)
-    coord_levels = pad_list(coord_levels, site_count)
-
     page = (row.get("page") or row.get("name") or "site").strip()
+    university_name = (row.get("name") or page).strip()
 
-    for index in range(site_count):
-        address = addresses[index]
-        latitude = latitudes[index]
-        longitude = longitudes[index]
-        coord_level = coord_levels[index]
+    for site_record in build_site_records(row):
+        site_index = int(site_record["index"])
+        address = site_record["address"]
+        latitude = site_record["latitude"]
+        longitude = site_record["longitude"]
+        coord_level = site_record["coord_level"]
+        site_city = site_record["city"]
+        site_province = site_record["province"]
 
-        if not any([address, latitude, longitude, coord_level]):
+        if not any([address, latitude, longitude, coord_level, site_city, site_province]):
             continue
 
-        site_uri = make_resource_uri(vres, "Site", f"{page}_site_{index + 1}")
+        site_uri = make_site_uri(vres, page, site_index)
         graph.add((site_uri, RDF.type, vio.Site))
+        graph.add((site_uri, RDF.type, vio.Place))
         graph.add((university_uri, vio.hasSite, site_uri))
+        ensure_label_and_name(graph, site_uri, vio, f"{university_name} - Site {site_index}")
 
         if address:
-            graph.add((site_uri, RDFS.label, Literal(f"Cơ sở {index + 1}", lang="vi")))
             add_vi_literal(graph, site_uri, vio.address, address)
         add_float_literal(graph, site_uri, geo.lat, latitude)
         add_float_literal(graph, site_uri, geo.long, longitude)
         if coord_level:
             graph.add((site_uri, vio.coordLevel, Literal(coord_level, datatype=XSD.string)))
 
-        site_city, site_province = infer_site_location_from_address(address, row_city, row_province, site_count)
         city_uri: Optional[URIRef] = None
         province_uri: Optional[URIRef] = None
         if site_province:
-            province_uri = make_resource_uri(vres, "Province", site_province)
+            province_uri = make_province_uri(vres, site_province)
             graph.add((province_uri, RDF.type, vio.Province))
+            graph.add((province_uri, RDF.type, vio.Place))
             ensure_label_and_name(graph, province_uri, vio, site_province)
             graph.add((site_uri, vio.locatedInProvince, province_uri))
         if site_city:
-            city_uri = make_resource_uri(vres, "City", site_city)
+            city_uri = make_city_uri(vres, site_city)
             graph.add((city_uri, RDF.type, vio.City))
+            graph.add((city_uri, RDF.type, vio.Place))
             ensure_label_and_name(graph, city_uri, vio, site_city)
             graph.add((site_uri, vio.locatedInCity, city_uri))
         if city_uri and province_uri:
@@ -302,8 +447,15 @@ def add_membership_relation(graph: Graph, university_uri: URIRef, row: dict, vio
     if not parent_name:
         return
 
-    parent_uri = make_resource_uri(vres, "University", parent_name)
-    graph.add((parent_uri, RDF.type, vio.University))
+    if is_university_system_name(parent_name):
+        parent_uri = make_university_system_uri(vres, parent_name)
+        graph.add((parent_uri, RDF.type, vio.UniversitySystem))
+        graph.add((parent_uri, RDF.type, vio.Organization))
+    else:
+        parent_uri = make_university_uri(vres, parent_name)
+        graph.add((parent_uri, RDF.type, vio.University))
+        graph.add((parent_uri, RDF.type, vio.EducationalOrganization))
+        graph.add((parent_uri, RDF.type, vio.Organization))
     ensure_label_and_name(graph, parent_uri, vio, parent_name)
     graph.add((university_uri, vio.isMemberOf, parent_uri))
     graph.add((parent_uri, vio.hasMember, university_uri))
@@ -374,7 +526,7 @@ def main() -> None:
     """Parse CLI arguments, chuyển CSV sang Turtle và upload nếu được yêu cầu."""
     parser = argparse.ArgumentParser(description="Convert Vietnamese university CSV data into RDF/Turtle.")
     parser.add_argument("--input", default="data/vietnam_universities_details_full.csv", help="Input CSV file path.")
-    parser.add_argument("--output", default="data/universities_instances.ttl", help="Output Turtle file path.")
+    parser.add_argument("--output", default="data/vietnam_university_kg.ttl", help="Output Turtle file path.")
     parser.add_argument("--upload", action="store_true", help="Upload the generated Turtle file to Fuseki after serialization.")
     parser.add_argument("--fuseki-endpoint", default="", help="Fuseki data endpoint, for example http://localhost:3030/vio/data")
     parser.add_argument("--fuseki-user", default="", help="Fuseki username for Basic Auth.")
