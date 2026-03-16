@@ -1,0 +1,40 @@
+@prefix geo1: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix vio: <http://vi.dbpedia.org/ontology/> .
+@prefix wd: <http://www.wikidata.org/entity/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://vi.dbpedia.org/resource/University/dai_hoc_ngoai_thuong> a vio:University ;
+    rdfs:label "Đại học Ngoại thương"@vi ;
+    vio:academicStaffSize 1000 ;
+    vio:foundingYearOrg "1960"^^xsd:gYear ;
+    vio:hasSite <http://vi.dbpedia.org/resource/Site/dai_hoc_ngoai_thuong_site_1>,
+        <http://vi.dbpedia.org/resource/Site/dai_hoc_ngoai_thuong_site_2> ;
+    vio:locatedInCity <http://vi.dbpedia.org/resource/City/ha_noi> ;
+    vio:locatedInProvince <http://vi.dbpedia.org/resource/Province/ha_noi> ;
+    vio:name "Đại học Ngoại thương"@vi ;
+    vio:numberOfStudents 20000 ;
+    owl:sameAs wd:Q490 .
+
+<http://vi.dbpedia.org/resource/City/ha_noi> a vio:City ;
+    rdfs:label "Hà Nội"@vi ;
+    vio:isPartOf <http://vi.dbpedia.org/resource/Province/ha_noi> ;
+    vio:name "Hà Nội"@vi .
+
+<http://vi.dbpedia.org/resource/Site/dai_hoc_ngoai_thuong_site_1> a vio:Site ;
+    rdfs:label "Cơ sở 1"@vi ;
+    vio:address "91 Chùa Láng, Hà Nội"@vi ;
+    geo1:lat "21.022"^^xsd:float ;
+    geo1:long "105.802"^^xsd:float .
+
+<http://vi.dbpedia.org/resource/Site/dai_hoc_ngoai_thuong_site_2> a vio:Site ;
+    rdfs:label "Cơ sở 2"@vi ;
+    vio:address "15 Đường D5, TP.HCM"@vi ;
+    geo1:lat "10.803"^^xsd:float ;
+    geo1:long "106.718"^^xsd:float .
+
+<http://vi.dbpedia.org/resource/Province/ha_noi> a vio:Province ;
+    rdfs:label "Hà Nội"@vi ;
+    vio:name "Hà Nội"@vi .
+

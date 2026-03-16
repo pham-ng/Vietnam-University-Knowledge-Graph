@@ -1,0 +1,11 @@
+PREFIX vio: <http://vi.dbpedia.org/ontology/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?member ?memberName ?parent ?parentName
+WHERE {
+  ?member a vio:University ;
+          rdfs:label ?memberName ;
+          vio:isMemberOf ?parent .
+  ?parent rdfs:label ?parentName .
+}
+ORDER BY ?parentName ?memberName

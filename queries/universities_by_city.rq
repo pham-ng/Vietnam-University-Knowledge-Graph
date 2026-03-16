@@ -1,0 +1,11 @@
+PREFIX vio: <http://vi.dbpedia.org/ontology/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?university ?universityName ?cityName
+WHERE {
+  ?university a vio:University ;
+              rdfs:label ?universityName ;
+              vio:locatedInCity ?city .
+  ?city rdfs:label ?cityName .
+}
+ORDER BY ?cityName ?universityName

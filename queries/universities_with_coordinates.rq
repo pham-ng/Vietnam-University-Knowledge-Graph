@@ -1,0 +1,12 @@
+PREFIX vio: <http://vi.dbpedia.org/ontology/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
+
+SELECT ?university ?universityName ?lat ?long
+WHERE {
+  ?university a vio:University ;
+              rdfs:label ?universityName ;
+              geo:lat ?lat ;
+              geo:long ?long .
+}
+ORDER BY ?universityName

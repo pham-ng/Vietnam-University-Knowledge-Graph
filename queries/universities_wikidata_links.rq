@@ -1,0 +1,11 @@
+PREFIX vio: <http://vi.dbpedia.org/ontology/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+
+SELECT ?university ?universityName ?wikidata
+WHERE {
+  ?university a vio:University ;
+              rdfs:label ?universityName ;
+              owl:sameAs ?wikidata .
+}
+ORDER BY ?universityName
